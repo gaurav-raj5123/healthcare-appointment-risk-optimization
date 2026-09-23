@@ -21,8 +21,8 @@ def engineer_features(input_path=INPUT_DATA_PATH):
     initial_count = len(df)
     print(f"Loaded {initial_count:,} appointments.")
     
-    # Standardize target
-    df['no_show'] = df['disengaged'].astype(int)  # 1 = No-show, 0 = Show
+    # Verify target variable is binary
+    assert set(df['no_show'].unique()) <= {0, 1}, "Target variable no_show must be binary 0 or 1!"
     
     # Ensure proper datetime parsing
     df['scheduled_day'] = pd.to_datetime(df['scheduled_day'])
@@ -30,6 +30,8 @@ def engineer_features(input_path=INPUT_DATA_PATH):
     
     # ---------------------------------------------------------
     # 1. CORE STATIC CLINICAL & DEMOGRAPHIC FEATURES
+    # (Notice: sms_received is EXCLUDED from predictors because at scheduling
+    # time on Day 0, whether an SMS will be sent is future information!)
     # ---------------------------------------------------------
     print("\n--- Engineering Core Static Features ---")
     # gender: 1 = Female, 0 = Male
@@ -39,10 +41,10 @@ def engineer_features(input_path=INPUT_DATA_PATH):
     df['has_handicap'] = (df['handicap'] > 0).astype(int)
     
     # Ensure binary integer types
-    for col in ['scholarship', 'hypertension', 'diabetes', 'alcoholism', 'sms_received']:
+    for col in ['scholarship', 'hypertension', 'diabetes', 'alcoholism']:
         df[col] = df[col].astype(int)
         
-    print(f"Static features verified: age, gender, scholarship, hypertension, diabetes, alcoholism, has_handicap, sms_received")
+    print(f"Static features verified: age, gender, scholarship, hypertension, diabetes, alcoholism, has_handicap")
 
     # ---------------------------------------------------------
     # 2. CORE TEMPORAL & OPERATIONAL FEATURES
@@ -127,13 +129,13 @@ def engineer_features(input_path=INPUT_DATA_PATH):
     # ---------------------------------------------------------
     # 6. SAVE OUTPUT DATASETS & FEATURE CATALOG
     # ---------------------------------------------------------
-    # Order columns cleanly: Identifiers/Dates -> Target -> Features
+    # Order columns cleanly: Identifiers/Dates/Interventions -> Target -> Features
     feature_cols = [
-        'age', 'gender', 'scholarship', 'hypertension', 'diabetes', 'alcoholism', 'has_handicap', 'sms_received',
+        'age', 'gender', 'scholarship', 'hypertension', 'diabetes', 'alcoholism', 'has_handicap',
         'lead_days', 'same_day_booking', 'appointment_dow', 'scheduled_dow', 'appointment_month',
         'prior_appointments', 'prior_noshows', 'prior_noshow_rate', 'days_since_last_appointment', 'is_first_appointment'
     ]
-    meta_cols = ['appointment_id', 'patient_id', 'scheduled_day', 'appointment_day', 'no_show']
+    meta_cols = ['appointment_id', 'patient_id', 'scheduled_day', 'appointment_day', 'sms_received', 'no_show']
     ordered_cols = meta_cols + feature_cols
     
     df_train_out = df_train[ordered_cols]
@@ -147,7 +149,8 @@ def engineer_features(input_path=INPUT_DATA_PATH):
     
     # Feature catalog metadata
     feature_catalog = {
-        "pipeline_version": "1.0",
+        "pipeline_version": "1.1",
+        "prediction_point": "At scheduling time (Day 0) - Zero future information",
         "temporal_cutoff": TEMPORAL_CUTOFF_DATE,
         "train_rows": len(df_train_out),
         "test_rows": len(df_test_out),
@@ -166,14 +169,13 @@ def engineer_features(input_path=INPUT_DATA_PATH):
                 {"name": "hypertension", "type": "binary", "description": "Diagnosed hypertension"},
                 {"name": "diabetes", "type": "binary", "description": "Diagnosed diabetes"},
                 {"name": "alcoholism", "type": "binary", "description": "Documented alcoholism"},
-                {"name": "has_handicap", "type": "binary", "description": "Physical disability indicator"},
-                {"name": "sms_received", "type": "binary", "description": "Whether an SMS reminder was sent"}
+                {"name": "has_handicap", "type": "binary", "description": "Physical disability indicator"}
             ],
             "core_temporal": [
                 {"name": "lead_days", "type": "continuous", "description": "Waiting time in calendar days from booking to visit"},
-                {"name": "same_day_booking", "type": "binary", "description": "1 if appointment booked on the same day (lead_days == 0)"},
-                {"name": "appointment_dow", "type": "categorical_nominal", "description": "Day of week of appointment (0=Monday..5=Saturday)"},
-                {"name": "scheduled_dow", "type": "categorical_nominal", "description": "Day of week when booking was scheduled (0=Monday..5=Saturday)"},
+                {"name": "same_day_booking", "type": "candidate_binary", "description": "Derived from lead_days == 0 (kept for ablation testing in Step 4)"},
+                {"name": "appointment_dow", "type": "categorical_nominal", "description": "Day of week of appointment (0=Monday..5=Saturday; requires one-hot encoding for linear models)"},
+                {"name": "scheduled_dow", "type": "categorical_nominal", "description": "Day of week when booking was scheduled (0=Monday..5=Saturday; requires one-hot encoding for linear models)"},
                 {"name": "appointment_month", "type": "categorical_nominal", "description": "Calendar month of appointment (4=Apr, 5=May, 6=Jun)"}
             ],
             "core_patient_history": [
@@ -182,6 +184,11 @@ def engineer_features(input_path=INPUT_DATA_PATH):
                 {"name": "prior_noshow_rate", "type": "continuous_ratio", "description": "Ratio of prior missed visits (0.0 for first-time visitors)"},
                 {"name": "days_since_last_appointment", "type": "discrete_count", "description": "Days since patient's previous visit (-1 for first-time visits)"},
                 {"name": "is_first_appointment", "type": "binary", "description": "1 if patient has no prior recorded visits, 0 if returning"}
+            ],
+            "excluded_from_predictors": [
+                {"name": "sms_received", "reason": "Future information at Day 0 booking time; preserved in metadata for intervention analysis only."},
+                {"name": "patient_id", "reason": "Identifier only; used for groupby aggregations."},
+                {"name": "appointment_id", "reason": "Arbitrary row identifier."}
             ]
         }
     }

@@ -21,7 +21,7 @@ At prediction time:
 ---
 
 ## 🏗️ The 3-Layer Feature Architecture
-1. **Layer 1 — Core Static Features:** Demographics (`age`, `gender`), socioeconomic status (`scholarship`), clinical comorbidities (`hypertension`, `diabetes`, `alcoholism`, `has_handicap`), and communication (`sms_received`).
+1. **Layer 1 — Core Static Features:** Demographics (`age`, `gender`), socioeconomic status (`scholarship`), and clinical comorbidities (`hypertension`, `diabetes`, `alcoholism`, `has_handicap`). *(Notice: `sms_received` is intentionally excluded from predictors to maintain Day 0 scheduling-time validity).*
 2. **Layer 2 — Core Temporal Features:** Operational timing (`lead_days`, `same_day_booking`, `appointment_dow`, `scheduled_dow`, `appointment_month`).
 3. **Layer 3 — Core Patient History Features (Point-in-Time, Zero-Leakage):** `prior_appointments`, `prior_noshows`, `prior_noshow_rate`, `days_since_last_appointment`, `is_first_appointment`.
 """))
@@ -48,9 +48,14 @@ df_test = pd.read_csv(test_path)
 with open(meta_path, 'r') as f:
     catalog = json.load(f)
 
+# Assert binary target validity
+assert set(df_train['no_show'].unique()) <= {0, 1}, "Target variable no_show must be binary 0 or 1!"
+assert set(df_test['no_show'].unique()) <= {0, 1}, "Target variable no_show must be binary 0 or 1!"
+
 print(f"Train set: {len(df_train):,} rows, {df_train.shape[1]} columns")
 print(f"Test set:  {len(df_test):,} rows, {df_test.shape[1]} columns")
 print(f"Total features cataloged: {len(catalog['features']['core_static']) + len(catalog['features']['core_temporal']) + len(catalog['features']['core_patient_history'])}")
+print(f"Excluded from predictors: {[item['name'] for item in catalog['features']['excluded_from_predictors']]}")
 """))
 
     # Section 2: Temporal Split Inspection
@@ -128,25 +133,30 @@ plt.show()
 """))
 
     # Section 5: Feature Correlations with Target
-    cells.append(nbf.v4.new_markdown_cell("## 5. Linear Feature Correlations with Target (`no_show`)"))
-    cells.append(nbf.v4.new_code_cell("""feature_cols = [
-    'age', 'gender', 'scholarship', 'hypertension', 'diabetes', 'alcoholism', 'has_handicap', 'sms_received',
-    'lead_days', 'same_day_booking', 'appointment_dow', 'scheduled_dow', 'appointment_month',
-    'prior_appointments', 'prior_noshows', 'prior_noshow_rate', 'days_since_last_appointment', 'is_first_appointment'
+    cells.append(nbf.v4.new_markdown_cell("""## 5. Metric Feature Correlations with Target (`no_show`)
+
+> **Note on Categorical Features:**  
+> Nominal variables (`appointment_dow`, `scheduled_dow`, `appointment_month`) are intentionally **excluded** from this Pearson correlation chart because days of the week have no natural numerical hierarchy (Monday=0, Tuesday=1 does not mean Tuesday is twice Monday). Pearson correlation is only mathematically valid on metric continuous or binary indicator variables. In Step 4 (Modeling), nominal days of week will be one-hot encoded for linear models and appropriately handled by tree models.
+"""))
+    cells.append(nbf.v4.new_code_cell("""# Evaluate metric continuous, count, and binary ordinal/indicator features
+metric_features = [
+    'lead_days', 'same_day_booking',
+    'prior_appointments', 'prior_noshows', 'prior_noshow_rate', 'days_since_last_appointment', 'is_first_appointment',
+    'age', 'gender', 'scholarship', 'hypertension', 'diabetes', 'alcoholism', 'has_handicap'
 ]
 
-corrs = df_train[feature_cols].apply(lambda col: col.corr(df_train['no_show'])).sort_values()
+corrs = df_train[metric_features].apply(lambda col: col.corr(df_train['no_show'])).sort_values()
 
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(10, 5.5))
 colors = ['#d7191c' if v > 0 else '#2c7bb6' for v in corrs.values]
 corrs.plot(kind='barh', color=colors)
-plt.title("Feature Correlations with Target (no_show) on Training Set", fontsize=13, fontweight='bold')
+plt.title("Metric Feature Correlations with Target (no_show) on Training Set", fontsize=13, fontweight='bold')
 plt.xlabel("Pearson Correlation (r)")
 plt.axvline(0, color='black', linestyle='--', alpha=0.7)
 plt.tight_layout()
 plt.show()
 
-print("Feature correlations with no_show:")
+print("Metric feature correlations with no_show:")
 print(corrs.round(3))
 """))
 
@@ -155,12 +165,12 @@ print(corrs.round(3))
 
 | Feature Category | Features Included | Modeling Readiness |
 | :--- | :--- | :--- |
-| **Static Demographics & Clinical** | `age`, `gender`, `scholarship`, `hypertension`, `diabetes`, `alcoholism`, `has_handicap`, `sms_received` | Clean binary & numeric scales ready for both linear & tree-based models. |
-| **Temporal & Operational** | `lead_days`, `same_day_booking`, `appointment_dow`, `scheduled_dow`, `appointment_month` | Captures booking horizons and day-of-week volume without leakage. |
-| **Patient Behavioral History** | `prior_appointments`, `prior_noshows`, `prior_noshow_rate`, `days_since_last_appointment`, `is_first_appointment` | Strictly point-in-time; provides strongest predictive separation. |
+| **Static Demographics & Clinical** | `age`, `gender`, `scholarship`, `hypertension`, `diabetes`, `alcoholism`, `has_handicap` | Clean binary & numeric scales ready for both linear & tree-based models. *(Note: `sms_received` is intentionally excluded from predictors to maintain Day 0 scheduling-time validity).* |
+| **Temporal & Operational** | `lead_days`, `same_day_booking`, `appointment_dow`, `scheduled_dow`, `appointment_month` | Captures booking horizons and day-of-week volume. `same_day_booking` is designated for candidate ablation vs `lead_days`. Day of week will be one-hot encoded for linear models. |
+| **Patient Behavioral History** | `prior_appointments`, `prior_noshows`, `prior_noshow_rate`, `days_since_last_appointment`, `is_first_appointment` | Strictly point-in-time (zero lookahead leakage); provides strongest predictive separation. |
 
 ### 🚀 Next Step:
-Proceed to **`steps/04_modeling/`** to benchmark baseline estimators, Logistic Regression, Random Forest, and LightGBM/XGBoost on the temporal split!
+Proceed to **`steps/04_modeling/`** to benchmark baseline estimators, Logistic Regression (with One-Hot Encoding), Random Forest, and LightGBM/XGBoost on the temporal split!
 """))
 
     nb.cells = cells

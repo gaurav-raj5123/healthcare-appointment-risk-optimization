@@ -25,7 +25,7 @@ def main():
     df = pd.read_csv(DATA_PATH)
     df['scheduled_day'] = pd.to_datetime(df['scheduled_day'])
     df['appointment_day'] = pd.to_datetime(df['appointment_day'])
-    df['no_show'] = df['disengaged']  # 1 = No-show, 0 = Show
+    assert set(df['no_show'].unique()) <= {0, 1}, "Target variable no_show must be binary 0 or 1!"
     
     print("\n--- Generating Figure 1: Numerical Distributions (Age & Lead Days) ---")
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))

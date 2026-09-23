@@ -50,14 +50,15 @@ def clean_data(input_csv=DEFAULT_INPUT, output_csv=DEFAULT_OUTPUT):
     
     df_clean = df[clean_mask].copy()
     
-    # 5. Standardize Target Variable: 1 = No-show (Disengaged), 0 = Show (Attended)
-    df_clean['disengaged'] = (df_clean['no_show'].str.strip().str.lower() == 'yes').astype(int)
+    # 5. Standardize Target Variable: 1 = No-show (did not attend), 0 = Show (attended)
+    df_clean['no_show'] = (df_clean['no_show'].str.strip().str.lower() == 'yes').astype(int)
+    assert set(df_clean['no_show'].unique()) <= {0, 1}, "Target variable contains values other than 0 and 1!"
     
     # Quick sanity verification
     print("\n--- Cleaned Dataset Summary ---")
     print(f"Final records: {len(df_clean):,} (retained {len(df_clean)/initial_len*100:.4f}%)")
     print(f"Unique patients: {df_clean['patient_id'].nunique():,}")
-    print(f"Disengagement / No-Show rate: {df_clean['disengaged'].mean()*100:.2f}% ({df_clean['disengaged'].sum():,} no-shows)")
+    print(f"No-Show rate: {df_clean['no_show'].mean()*100:.2f}% ({df_clean['no_show'].sum():,} missed appointments)")
     print(f"Lead time range: {df_clean['lead_days'].min()} to {df_clean['lead_days'].max()} days")
     print(f"Age range: {df_clean['age'].min()} to {df_clean['age'].max()} years")
     

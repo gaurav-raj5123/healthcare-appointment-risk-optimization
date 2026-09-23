@@ -49,7 +49,7 @@ df = pd.read_csv(data_path)
 # Ensure datetime types
 df['scheduled_day'] = pd.to_datetime(df['scheduled_day'])
 df['appointment_day'] = pd.to_datetime(df['appointment_day'])
-df['no_show'] = df['disengaged']  # 1 = No-show, 0 = Show
+assert set(df['no_show'].unique()) <= {0, 1}, "Target variable no_show must be binary 0 or 1!"
 
 print(f"Dataset successfully loaded: {df.shape[0]:,} rows, {df.shape[1]} columns.")
 """))

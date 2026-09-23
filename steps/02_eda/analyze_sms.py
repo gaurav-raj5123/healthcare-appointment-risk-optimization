@@ -37,14 +37,14 @@ def main():
         total_appts=('appointment_id', 'count'),
         sms_sent=('sms_received', 'sum'),
         sms_rate=('sms_received', 'mean'),
-        noshow_rate=('disengaged', 'mean')
+        noshow_rate=('no_show', 'mean')
     )
     sms_by_bin['sms_rate_pct'] = (sms_by_bin['sms_rate'] * 100).round(2)
     sms_by_bin['noshow_rate_pct'] = (sms_by_bin['noshow_rate'] * 100).round(2)
     print("\n--- SMS Rate and No-Show Rate across Lead Time Bins ---")
     print(sms_by_bin[['total_appts', 'sms_sent', 'sms_rate_pct', 'noshow_rate_pct']])
 
-    c = df.groupby(['lead_bin', 'sms_received'], observed=False)['disengaged'].agg(['count', 'mean']).unstack()
+    c = df.groupby(['lead_bin', 'sms_received'], observed=False)['no_show'].agg(['count', 'mean']).unstack()
     c.columns = ['No_SMS_N', 'SMS_N', 'No_SMS_NoShow_%', 'SMS_NoShow_%']
     c['No_SMS_NoShow_%'] = (c['No_SMS_NoShow_%']*100).round(2)
     c['SMS_NoShow_%'] = (c['SMS_NoShow_%']*100).round(2)
