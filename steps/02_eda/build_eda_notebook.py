@@ -9,10 +9,10 @@ def build_notebook():
     cells = []
 
     # Title & Business framing
-    cells.append(nbf.v4.new_markdown_cell("""# 🏥 Healthcare Appointment No-Show Risk & Disengagement EDA
+    cells.append(nbf.v4.new_markdown_cell("""# 🏥 Healthcare Appointment No-Show Prediction EDA
 
 ### **Business Question:**
-> *"Which scheduled appointments are at high risk of no-show, what observable factors are associated with that risk, and how can the healthcare provider use those predictions to prioritize interventions and reduce avoidable missed appointments?"*
+> *"Which scheduled appointments are at high risk of a patient not attending (no-show), what observable clinical and operational factors are associated with that risk, and how can the clinic use these predictions to prioritize reminders and schedule capacity?"*
 
 ---
 
@@ -33,6 +33,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import warnings
+
+# Suppress minor library deprecation warnings for clean presentation
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
 
 # Set plotting style
 sns.set_theme(style="whitegrid", palette="muted")
@@ -65,8 +70,8 @@ print(f"Average appointments per patient: {total_appts / unique_patients:.2f}")
 
     # Section 3: Target distribution
     cells.append(nbf.v4.new_markdown_cell("""## 3. Target Distribution (`no_show`)
-* `0` = Show (Patient attended)
-* `1` = No-Show (Patient missed appointment / disengaged)
+* `0` = Show (Patient attended scheduled appointment)
+* `1` = No-Show (Patient did not attend scheduled appointment)
 
 ### 💡 Key Modeling Decision:
 The target exhibits an **80/20 class imbalance**. A trivial model predicting "Show" for every appointment achieves 80% accuracy, but is completely useless to a clinic.  
@@ -77,12 +82,12 @@ target_pct = df['no_show'].value_counts(normalize=True) * 100
 
 print("Target Distribution:")
 for k, v in target_counts.items():
-    label = "No-Show (Disengaged)" if k == 1 else "Show (Attended)"
+    label = "No-Show (Did Not Attend)" if k == 1 else "Show (Attended)"
     print(f"  {k} ({label}): {v:,} ({target_pct[k]:.2f}%)")
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-sns.barplot(x=target_counts.index, y=target_counts.values, ax=axes[0], palette=['#2b83ba', '#d7191c'])
-axes[0].set_xticklabels(['Show (0)', 'No-Show (1)'])
+bar_labels = ['Show (0)', 'No-Show (1)']
+sns.barplot(x=bar_labels, y=target_counts.values, ax=axes[0], hue=bar_labels, palette=['#2b83ba', '#d7191c'], legend=False)
 axes[0].set_title('Appointment Outcome Distribution (Count)')
 axes[0].set_ylabel('Count')
 
@@ -146,7 +151,7 @@ print("No-Show Rate Across Life Stages:")
 print(age_rate.round(2))
 
 plt.figure(figsize=(9, 4))
-sns.barplot(x=age_rate.index, y=age_rate.values, palette='Blues_r')
+sns.barplot(x=age_rate.index, y=age_rate.values, hue=age_rate.index, palette='Blues_r', legend=False)
 plt.axhline(df['no_show'].mean() * 100, color='red', linestyle='--', label=f"Average ({df['no_show'].mean()*100:.1f}%)")
 plt.title("No-Show Rate by Patient Life Stage")
 plt.ylabel("No-Show Rate (%)")
@@ -163,7 +168,7 @@ print("No-Show Rate Across Lead Time Groups:")
 print(lead_rate.round(2))
 
 plt.figure(figsize=(10, 4.5))
-sns.barplot(x=lead_rate.index, y=lead_rate.values, palette='Oranges')
+sns.barplot(x=lead_rate.index, y=lead_rate.values, hue=lead_rate.index, palette='Oranges', legend=False)
 plt.axhline(df['no_show'].mean() * 100, color='red', linestyle='--', label=f"Average ({df['no_show'].mean()*100:.1f}%)")
 plt.title("No-Show Rate by Lead Time (Waiting Days)")
 plt.ylabel("No-Show Rate (%)")
@@ -184,45 +189,70 @@ for f in factors:
 
     # Section 7: Patient history analysis
     cells.append(nbf.v4.new_markdown_cell("""## 7. Patient History Analysis (Causal Behavioral Features)
-Investigating whether historical attendance predicts future attendance **without data leakage**.  
-We sort chronologically and compute rolling cumulative statistics strictly prior to each appointment.
+Investigating whether historical attendance associates with future attendance **without data leakage**.  
+We sort chronologically and compute rolling cumulative statistics strictly prior to each appointment, including both prior no-show count and prior no-show rate.
 """))
     cells.append(nbf.v4.new_code_cell("""# Chronological sort
 df_sorted = df.sort_values(by=['patient_id', 'appointment_day', 'scheduled_day']).copy()
 
-# Causal rolling features
+# Causal rolling features (Zero-Leakage)
 df_sorted['prior_appointments'] = df_sorted.groupby('patient_id').cumcount()
 df_sorted['prior_noshows'] = df_sorted.groupby('patient_id')['no_show'].cumsum() - df_sorted['no_show']
+df_sorted['prior_noshow_rate'] = np.where(
+    df_sorted['prior_appointments'] > 0,
+    df_sorted['prior_noshows'] / df_sorted['prior_appointments'],
+    np.nan
+)
 
 repeat_patients = df_sorted[df_sorted['prior_appointments'] > 0].copy()
 repeat_patients['prior_noshow_capped'] = repeat_patients['prior_noshows'].clip(upper=4).astype(int).astype(str)
 repeat_patients.loc[repeat_patients['prior_noshow_capped'] == '4', 'prior_noshow_capped'] = '4+'
 
 ns_rate_by_history = repeat_patients.groupby('prior_noshow_capped', observed=False)['no_show'].mean() * 100
-print("Current Appointment No-Show Rate based on Prior No-Shows:")
-print(ns_rate_by_history.round(2))
 
-plt.figure(figsize=(8, 4.5))
-sns.barplot(x=ns_rate_by_history.index, y=ns_rate_by_history.values, palette='Reds')
-plt.title("Predictive Power: Past No-Shows Strongly Predict Future No-Shows")
-plt.xlabel("Number of Prior Missed Appointments")
-plt.ylabel("Current No-Show Rate (%)")
+# Rate bins for prior_noshow_rate
+rate_bins = [-0.01, 0.0, 0.25, 0.50, 0.75, 1.0]
+rate_labels = ['0% (Never missed)', '1-25%', '26-50%', '51-75%', '76-100% (Always missed)']
+repeat_patients['prior_rate_bin'] = pd.cut(repeat_patients['prior_noshow_rate'], bins=rate_bins, labels=rate_labels)
+ns_rate_by_ratio = repeat_patients.groupby('prior_rate_bin', observed=False)['no_show'].mean() * 100
+
+print("Current No-Show Rate by Prior Missed Appointments Count:")
+print(ns_rate_by_history.round(2))
+print("\\nCurrent No-Show Rate by Prior No-Show Rate (Ratio):")
+print(ns_rate_by_ratio.round(2))
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4.5))
+
+# Left: Count of prior no-shows
+sns.barplot(x=ns_rate_by_history.index, y=ns_rate_by_history.values, ax=axes[0], hue=ns_rate_by_history.index, palette='Reds', legend=False)
+axes[0].set_title("No-Show Rate by Prior No-Show Count")
+axes[0].set_xlabel("Number of Prior Missed Appointments")
+axes[0].set_ylabel("Current No-Show Rate (%)")
+
+# Right: Ratio of prior no-shows (prior_noshow_rate)
+sns.barplot(x=ns_rate_by_ratio.index, y=ns_rate_by_ratio.values, ax=axes[1], hue=ns_rate_by_ratio.index, palette='YlOrRd', legend=False)
+axes[1].set_title("No-Show Rate by Prior No-Show Rate (%)")
+axes[1].set_xlabel("Historical No-Show Ratio")
+axes[1].set_ylabel("Current No-Show Rate (%)")
+axes[1].tick_params(axis='x', rotation=20)
+
+plt.tight_layout()
 plt.show()
 """))
 
     # Section 8: Multivariate relationships
-    cells.append(nbf.v4.new_markdown_cell("""## 8. Multivariate Relationships: The SMS x Lead Time Paradox
-In aggregate, `sms_received` has a higher no-show rate (27.5% vs 16.7%).  
-**Why? Confounding by lead time.** Reminders were only dispatched to appointments scheduled $\ge 3$ days in advance. When stratified by lead time, SMS consistently reduces no-shows!
+    cells.append(nbf.v4.new_markdown_cell(r"""## 8. Multivariate Relationships: The SMS x Lead Time Paradox
+In aggregate, appointments that received an SMS reminder observed a higher no-show rate (27.5% vs 16.7%).  
+**Why? Confounding by lead time.** Reminders were only dispatched to appointments scheduled $\ge 3$ days in advance. No-show rates differ between SMS and non-SMS appointments after stratifying by lead time.
 """))
     cells.append(nbf.v4.new_code_cell("""sms_strat = df.groupby(['lead_bin', 'sms_received'], observed=False)['no_show'].mean().unstack() * 100
 sms_strat.columns = ['No SMS (0)', 'SMS Sent (1)']
-sms_strat['Absolute Reduction (%)'] = sms_strat['No SMS (0)'] - sms_strat['SMS Sent (1)']
+sms_strat['Difference (% points)'] = sms_strat['No SMS (0)'] - sms_strat['SMS Sent (1)']
 print(sms_strat.round(2))
 
 plt.figure(figsize=(11, 5))
 sms_strat[['No SMS (0)', 'SMS Sent (1)']].plot(kind='bar', figsize=(11, 5), color=['#d7191c', '#2c7bb6'])
-plt.title("The SMS Paradox (Simpson's Paradox): Controlled Impact by Lead Time")
+plt.title("SMS and No-Show Rate by Lead-Time Group")
 plt.ylabel("No-Show Rate (%)")
 plt.xlabel("Lead Time Window")
 plt.legend()
@@ -242,14 +272,14 @@ plt.show()
 """))
 
     # Section 9: EDA conclusions
-    cells.append(nbf.v4.new_markdown_cell("""## 9. EDA Conclusions & Modeling Decisions
+    cells.append(nbf.v4.new_markdown_cell(r"""## 9. EDA Conclusions & Modeling Decisions
 
 | Business Question / Observation | Empirical Finding | Modeling Decision |
 | :--- | :--- | :--- |
-| **Q1: Who is missing appointments?** | Adolescents/Young Adults (13–39) and Welfare (`Scholarship`) patients have significantly higher disengagement rates. Chronic disease patients (Hypertension, Diabetes) have lower disengagement (protective adherence). | Include age life-stage groupings, comorbidity burden scores, and socioeconomic flags as features. |
-| **Q2: Does appointment timing matter?** | Same-day visits have a **4.65%** no-show rate; waiting $\ge 1$ week pushes no-shows to **>25%**. | Include `is_same_day` binary flag, continuous `lead_days`, and log-transformed `log_lead_days`. |
-| **Q3: Does prior behavior matter?** | Patients with 2+ prior no-shows have a **>35%** repeat no-show probability. | Engineer causal rolling features (`prior_appointments`, `prior_noshow_count`, `prior_noshow_rate`) without lookahead bias. |
-| **Q4: Is communication associated with attendance?** | SMS reduces no-shows by **3% to 8.4%** across comparable lead times ($\ge 3$ days). | Include `sms_received` and interaction features (`sms_x_lead_days`). |
+| **Q1: Who has higher no-show rates?** | Adolescents and Young Adults (13–39) and Welfare (`Scholarship`) recipients have higher observed no-show rates. Patients with chronic conditions (Hypertension, Diabetes) observe lower no-show rates. | Include age life-stage groupings, comorbidity burden scores, and socioeconomic flags as features. |
+| **Q2: Does appointment timing matter?** | Same-day visits observe a **4.65%** no-show rate; appointments with lead times $\ge 1$ week observe no-show rates exceeding **25%**. | Include `is_same_day` binary flag, continuous `lead_days`, and log-transformed `log_lead_days`. |
+| **Q3: Does prior behavior matter?** | Patients with previous no-shows observe significantly higher subsequent no-show rates (up to **39%** for patients who missed >50% of prior visits). | Engineer causal rolling features (`prior_appointments`, `prior_noshows`, and `prior_noshow_rate`) without lookahead bias. |
+| **Q4: Is communication associated with attendance?** | In appointments with lead times $\ge 3$ days, appointments with SMS reminders observed no-show rates **3% to 8.4% lower** than those without reminders. | Include `sms_received` and interaction features (`sms_x_lead_days`). |
 | **Q5: Is target imbalanced?** | 80% Show vs 20% No-Show. | **Do not evaluate on accuracy.** Use **PR-AUC, ROC-AUC, F1-Score, and Expected Value Threshold Optimization**. |
 
 ---

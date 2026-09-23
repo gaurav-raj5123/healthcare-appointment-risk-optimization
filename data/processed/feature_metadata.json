@@ -1,0 +1,114 @@
+{
+  "pipeline_version": "1.0",
+  "temporal_cutoff": "2016-06-01",
+  "train_rows": 84071,
+  "test_rows": 26450,
+  "target": {
+    "name": "no_show",
+    "type": "binary",
+    "values": {
+      "0": "Show (Attended)",
+      "1": "No-Show (Missed)"
+    },
+    "train_rate": 0.2073,
+    "test_rate": 0.1846
+  },
+  "features": {
+    "core_static": [
+      {
+        "name": "age",
+        "type": "continuous",
+        "description": "Patient age in years"
+      },
+      {
+        "name": "gender",
+        "type": "binary",
+        "description": "1 = Female, 0 = Male"
+      },
+      {
+        "name": "scholarship",
+        "type": "binary",
+        "description": "Welfare assistance enrollment (Bolsa Familia)"
+      },
+      {
+        "name": "hypertension",
+        "type": "binary",
+        "description": "Diagnosed hypertension"
+      },
+      {
+        "name": "diabetes",
+        "type": "binary",
+        "description": "Diagnosed diabetes"
+      },
+      {
+        "name": "alcoholism",
+        "type": "binary",
+        "description": "Documented alcoholism"
+      },
+      {
+        "name": "has_handicap",
+        "type": "binary",
+        "description": "Physical disability indicator"
+      },
+      {
+        "name": "sms_received",
+        "type": "binary",
+        "description": "Whether an SMS reminder was sent"
+      }
+    ],
+    "core_temporal": [
+      {
+        "name": "lead_days",
+        "type": "continuous",
+        "description": "Waiting time in calendar days from booking to visit"
+      },
+      {
+        "name": "same_day_booking",
+        "type": "binary",
+        "description": "1 if appointment booked on the same day (lead_days == 0)"
+      },
+      {
+        "name": "appointment_dow",
+        "type": "categorical_nominal",
+        "description": "Day of week of appointment (0=Monday..5=Saturday)"
+      },
+      {
+        "name": "scheduled_dow",
+        "type": "categorical_nominal",
+        "description": "Day of week when booking was scheduled (0=Monday..5=Saturday)"
+      },
+      {
+        "name": "appointment_month",
+        "type": "categorical_nominal",
+        "description": "Calendar month of appointment (4=Apr, 5=May, 6=Jun)"
+      }
+    ],
+    "core_patient_history": [
+      {
+        "name": "prior_appointments",
+        "type": "discrete_count",
+        "description": "Number of previous appointments for this patient"
+      },
+      {
+        "name": "prior_noshows",
+        "type": "discrete_count",
+        "description": "Number of previous missed appointments for this patient"
+      },
+      {
+        "name": "prior_noshow_rate",
+        "type": "continuous_ratio",
+        "description": "Ratio of prior missed visits (0.0 for first-time visitors)"
+      },
+      {
+        "name": "days_since_last_appointment",
+        "type": "discrete_count",
+        "description": "Days since patient's previous visit (-1 for first-time visits)"
+      },
+      {
+        "name": "is_first_appointment",
+        "type": "binary",
+        "description": "1 if patient has no prior recorded visits, 0 if returning"
+      }
+    ]
+  }
+}

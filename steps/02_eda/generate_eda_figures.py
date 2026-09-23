@@ -175,7 +175,7 @@ def main():
     plt.close()
     print(f"Saved: {fig4_path}")
 
-    print("\n--- Generating Figure 5: SMS x Lead Time Interaction (Simpson's Paradox) ---")
+    print("\n--- Generating Figure 5: SMS and No-Show Rate by Lead-Time Group ---")
     fig, ax = plt.subplots(figsize=(12, 6))
     
     lead_bins_sms = [-1, 0, 3, 7, 14, 30, 60, 365]
@@ -186,19 +186,19 @@ def main():
     sms_strat.columns = ['No SMS Received (0)', 'SMS Reminder Received (1)']
     
     sms_strat.plot(kind='bar', ax=ax, color=['#d7191c', '#2c7bb6'], width=0.7)
-    ax.set_title("The SMS Paradox: When Stratified by Lead Time, SMS Consistently Reduces No-Shows", fontsize=14, fontweight='bold')
+    ax.set_title("SMS and No-Show Rate by Lead-Time Group", fontsize=14, fontweight='bold')
     ax.set_ylabel("No-Show Rate (%)")
     ax.set_xlabel("Appointment Lead Time Window")
     ax.set_xticklabels(lead_labels_sms, rotation=15)
     ax.legend(title="")
     ax.set_ylim(0, 45)
     
-    # Annotate the reduction on each bar pair (starting from 4-7 days where SMS is active)
+    # Annotate the observed difference on each bar pair (starting from 4-7 days where SMS is active)
     for i in range(2, len(lead_labels_sms)):
         no_sms_val = sms_strat.iloc[i, 0]
         sms_val = sms_strat.iloc[i, 1]
         diff = no_sms_val - sms_val
-        ax.text(i + 0.17, sms_val + 1.0, f"-{diff:.1f}%\nSaved", ha='center', color='#1a9641', fontweight='bold', fontsize=9)
+        ax.text(i + 0.17, sms_val + 1.0, f"-{diff:.1f}%\nDiff", ha='center', color='#1a9641', fontweight='bold', fontsize=9)
 
     plt.tight_layout()
     fig5_path = os.path.join(FIG_DIR, '05_sms_leadtime_paradox.png')
@@ -206,28 +206,33 @@ def main():
     plt.close()
     print(f"Saved: {fig5_path}")
 
-    print("\n--- Generating Figure 6: Prior Patient Behavior (Causal History) ---")
+    print("\n--- Generating Figure 6: Prior Patient Behavior (Causal History & Rate) ---")
     # Chronologically sort appointments to simulate true historical causal calculation
     df_sorted = df.sort_values(by=['patient_id', 'appointment_day', 'scheduled_day']).copy()
     
-    # Calculate expanding prior appointments and prior no-shows strictly before current row
+    # Calculate expanding prior appointments, prior no-shows, and prior no-show rate strictly before current row
     df_sorted['prior_appointments'] = df_sorted.groupby('patient_id').cumcount()
     df_sorted['prior_noshows'] = df_sorted.groupby('patient_id')['no_show'].cumsum() - df_sorted['no_show']
+    df_sorted['prior_noshow_rate'] = np.where(
+        df_sorted['prior_appointments'] > 0,
+        df_sorted['prior_noshows'] / df_sorted['prior_appointments'],
+        np.nan
+    )
     
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     
-    # Prior appointments vs no-show rate
+    # 1. Prior appointments vs no-show rate
     df_sorted['prior_appt_bin'] = pd.cut(df_sorted['prior_appointments'], bins=[-1, 0, 1, 2, 4, 100], 
                                          labels=['0 (First Visit)', '1 Prior', '2 Prior', '3-4 Prior', '5+ Prior'])
     prior_appt_rate = df_sorted.groupby('prior_appt_bin', observed=False)['no_show'].mean() * 100
-    sns.barplot(x=prior_appt_rate.index, y=prior_appt_rate.values, ax=axes[0], palette='crest')
-    axes[0].set_title("No-Show Rate by Prior Total Appointments")
+    sns.barplot(x=prior_appt_rate.index, y=prior_appt_rate.values, ax=axes[0], hue=prior_appt_rate.index, palette='crest', legend=False)
+    axes[0].set_title("No-Show Rate by Prior Total Visits")
     axes[0].set_ylabel("Current No-Show Rate (%)")
     for i, v in enumerate(prior_appt_rate.values):
         axes[0].text(i, v + 0.6, f"{v:.1f}%", ha='center', fontweight='bold')
     axes[0].set_ylim(0, 26)
     
-    # Prior no-shows count vs no-show rate (for repeat patients)
+    # 2. Prior no-shows count vs no-show rate (for repeat patients)
     repeat_df = df_sorted[df_sorted['prior_appointments'] > 0].copy()
     repeat_df['prior_noshow_cap'] = repeat_df['prior_noshows'].clip(upper=4).astype(int).astype(str)
     repeat_df.loc[repeat_df['prior_noshow_cap'] == '4', 'prior_noshow_cap'] = '4+'
@@ -236,13 +241,28 @@ def main():
     order_ns = ['0', '1', '2', '3', '4+']
     prior_ns_rate = prior_ns_rate.reindex(order_ns)
     
-    sns.barplot(x=prior_ns_rate.index, y=prior_ns_rate.values, ax=axes[1], palette='Reds')
-    axes[1].set_title("Predictive Power: Past No-Shows Predict Future No-Shows")
-    axes[1].set_xlabel("Number of Past Missed Appointments (Prior No-Shows)")
+    sns.barplot(x=prior_ns_rate.index, y=prior_ns_rate.values, ax=axes[1], hue=prior_ns_rate.index, palette='Reds', legend=False)
+    axes[1].set_title("No-Show Rate by Past Missed Count")
+    axes[1].set_xlabel("Number of Prior No-Shows")
     axes[1].set_ylabel("Current No-Show Rate (%)")
     for i, v in enumerate(prior_ns_rate.values):
         axes[1].text(i, v + 1.0, f"{v:.1f}%", ha='center', fontweight='bold')
     axes[1].set_ylim(0, 50)
+
+    # 3. Prior no-show rate (%) vs current no-show rate
+    rate_bins = [-0.01, 0.0, 0.25, 0.50, 0.75, 1.0]
+    rate_labels = ['0% (Never missed)', '1-25%', '26-50%', '51-75%', '76-100%']
+    repeat_df['prior_rate_bin'] = pd.cut(repeat_df['prior_noshow_rate'], bins=rate_bins, labels=rate_labels)
+    prior_ratio_rate = repeat_df.groupby('prior_rate_bin', observed=False)['no_show'].mean() * 100
+
+    sns.barplot(x=prior_ratio_rate.index, y=prior_ratio_rate.values, ax=axes[2], hue=prior_ratio_rate.index, palette='YlOrRd', legend=False)
+    axes[2].set_title("No-Show Rate by Historical Miss Ratio")
+    axes[2].set_xlabel("Prior No-Show Rate (%)")
+    axes[2].set_ylabel("Current No-Show Rate (%)")
+    axes[2].tick_params(axis='x', rotation=15)
+    for i, v in enumerate(prior_ratio_rate.values):
+        axes[2].text(i, v + 1.0, f"{v:.1f}%", ha='center', fontweight='bold')
+    axes[2].set_ylim(0, 50)
     
     plt.tight_layout()
     fig6_path = os.path.join(FIG_DIR, '06_patient_history_effect.png')

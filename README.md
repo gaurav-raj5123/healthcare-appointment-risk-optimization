@@ -1,9 +1,9 @@
-# Healthcare Patient Churn & Care Disengagement Prediction
+# Healthcare Appointment No-Show Risk & Capacity Optimization
 
 ## 🎯 Business Problem
-**Which patients are at high risk of disengaging from a healthcare provider, and what clinical, operational, and socioeconomic factors contribute to that risk?**
+**Which scheduled appointments are at high risk of a patient not attending (no-show), and what clinical, operational, and socioeconomic factors contribute to that risk?**
 
-In outpatient provider networks, patient churn manifests as missed appointments and broken continuity of care, which accelerates chronic disease complications and costs health systems millions in idle clinical capacity.
+In outpatient provider networks, missed appointments (no-shows) disrupt clinical workflows, leave high-cost provider capacity idle, and compromise preventative care continuity.
 
 ---
 
@@ -22,10 +22,15 @@ PATIENT CHURN PREDICTION/
 │   │   └── step1_5_data_audit.py
 │   │
 │   ├── 02_eda/               # Step 2: Statistical association, odds ratios, SMS confounder analysis
-│   │   ├── step2_eda_and_statistics.py
-│   │   └── analyze_sms.py
+│   │   ├── 01_eda.ipynb      # Complete 9-stage EDA notebook with all figures & statistical tests
+│   │   ├── generate_eda_figures.py # Standalone script generating high-resolution publication figures
+│   │   └── figures/          # Exported high-resolution charts
 │   │
-│   ├── 03_feature_engineering/ # Step 3: Causal rolling features, operational & clinical encodings
+│   ├── 03_feature_engineering/ # Step 3: Prediction-time feature engineering & temporal split
+│   │   ├── engineer_features.py      # Production pipeline generating train/test feature sets
+│   │   ├── build_features_notebook.py # Generator for feature engineering notebook
+│   │   └── 02_feature_engineering.ipynb # Interactive verification & correlation notebook
+│   │
 │   ├── 04_modeling/            # Step 4 & 5: Baseline, Logistic Regression, Random Forest, XGBoost
 │   ├── 05_evaluation/          # Step 6, 7 & 8: PR-AUC, Threshold optimization, Error analysis
 │   └── 06_shap_explainability/ # Step 9 & 10: SHAP risk drivers & Clinical intervention dashboard
@@ -47,9 +52,12 @@ python steps/01_data_audit/step1_clean_and_save.py
 # Step 1.5: Run Leakage & Patient Audit
 python steps/01_data_audit/step1_5_data_audit.py
 
-# Step 2: Run Statistical EDA & Odds Ratio Analysis
-python steps/02_eda/step2_eda_and_statistics.py
+# Step 2: Generate All Publication EDA Figures
+python steps/02_eda/generate_eda_figures.py
 
-# Step 2: Run SMS Confounder Analysis
-python steps/02_eda/analyze_sms.py
+# Step 3: Run Prediction-Time Feature Engineering & Temporal Split
+python steps/03_feature_engineering/engineer_features.py
+
+# Or explore interactively:
+# Open steps/02_eda/01_eda.ipynb or steps/03_feature_engineering/02_feature_engineering.ipynb
 ```
