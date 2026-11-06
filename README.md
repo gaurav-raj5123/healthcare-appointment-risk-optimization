@@ -31,9 +31,13 @@ PATIENT CHURN PREDICTION/
 │   │   ├── build_features_notebook.py # Generator for feature engineering notebook
 │   │   └── 02_feature_engineering.ipynb # Interactive verification & correlation notebook
 │   │
-│   ├── 04_modeling/            # Step 4 & 5: Baseline, Logistic Regression, Random Forest, XGBoost
-│   ├── 05_evaluation/          # Step 6, 7 & 8: PR-AUC, Threshold optimization, Error analysis
-│   └── 06_shap_explainability/ # Step 9 & 10: SHAP risk drivers & Clinical intervention dashboard
+│   ├── 04_modeling/            # Step 4: Model benchmarking (Baselines, Logistic Regression, RF, XGBoost)
+│   │   ├── train_and_evaluate.py     # End-to-end model training, PR-AUC benchmarking & ablation
+│   │   ├── build_modeling_notebook.py# Generator for modeling notebook
+│   │   └── 03_model_benchmarking.ipynb # Visual ROC, PR curves & feature importance analysis
+│   │
+│   ├── 05_evaluation/          # Step 5 & 6: Threshold optimization, Cost-utility curve, Error analysis
+│   └── 06_shap_explainability/ # Step 7 & 8: SHAP risk drivers & Clinical intervention dashboard
 │
 └── utils/                    # Helper scripts and environment diagnostics
     ├── check_dates.py
@@ -58,6 +62,9 @@ python steps/02_eda/generate_eda_figures.py
 # Step 3: Run Prediction-Time Feature Engineering & Temporal Split
 python steps/03_feature_engineering/engineer_features.py
 
+# Step 4: Run Model Benchmarking & Pipeline Evaluation
+python steps/04_modeling/train_and_evaluate.py
+
 # Or explore interactively:
-# Open steps/02_eda/01_eda.ipynb or steps/03_feature_engineering/02_feature_engineering.ipynb
+# Open steps/02_eda/01_eda.ipynb, steps/03_feature_engineering/02_feature_engineering.ipynb, or steps/04_modeling/03_model_benchmarking.ipynb
 ```

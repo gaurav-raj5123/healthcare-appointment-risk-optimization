@@ -1,0 +1,6 @@
+model,pr_auc,roc_auc,f1_score,recall,precision,accuracy,brier_score
+XGBoost,0.3646,0.7356,0.4179,0.628,0.3131,0.677,0.1868
+Random Forest,0.3583,0.7343,0.4243,0.704,0.3036,0.6474,0.1967
+Logistic Regression,0.3444,0.7279,0.4233,0.7243,0.299,0.6357,0.1979
+Baseline (Stratified Prior),0.1849,0.5011,0.1971,0.2093,0.1862,0.6852,0.3148
+Baseline (Majority Class),0.1846,0.5,0.0,0.0,0.0,0.8154,0.1846

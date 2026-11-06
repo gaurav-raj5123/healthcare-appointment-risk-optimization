@@ -1,0 +1,63 @@
+{
+  "evaluation_dataset": "Unseen Future Appointments (June 1 - June 8, 2016)",
+  "test_records": 26450,
+  "primary_metric": "PR-AUC (Precision-Recall Area Under Curve)",
+  "ranking": [
+    {
+      "model": "Baseline (Majority Class)",
+      "pr_auc": 0.1846,
+      "roc_auc": 0.5,
+      "f1_score": 0.0,
+      "recall": 0.0,
+      "precision": 0.0,
+      "accuracy": 0.8154,
+      "brier_score": 0.1846
+    },
+    {
+      "model": "Baseline (Stratified Prior)",
+      "pr_auc": 0.1849,
+      "roc_auc": 0.5011,
+      "f1_score": 0.1971,
+      "recall": 0.2093,
+      "precision": 0.1862,
+      "accuracy": 0.6852,
+      "brier_score": 0.3148
+    },
+    {
+      "model": "Logistic Regression",
+      "pr_auc": 0.3444,
+      "roc_auc": 0.7279,
+      "f1_score": 0.4233,
+      "recall": 0.7243,
+      "precision": 0.299,
+      "accuracy": 0.6357,
+      "brier_score": 0.1979
+    },
+    {
+      "model": "Random Forest",
+      "pr_auc": 0.3583,
+      "roc_auc": 0.7343,
+      "f1_score": 0.4243,
+      "recall": 0.704,
+      "precision": 0.3036,
+      "accuracy": 0.6474,
+      "brier_score": 0.1967
+    },
+    {
+      "model": "XGBoost",
+      "pr_auc": 0.3646,
+      "roc_auc": 0.7356,
+      "f1_score": 0.4179,
+      "recall": 0.628,
+      "precision": 0.3131,
+      "accuracy": 0.677,
+      "brier_score": 0.1868
+    }
+  ],
+  "ablation_study": {
+    "feature_tested": "same_day_booking",
+    "pr_auc_with": 0.3646,
+    "pr_auc_without": 0.3637,
+    "conclusion": "Derived same_day_booking is redundant for tree models as splits already capture 0-day horizon."
+  }
+}
