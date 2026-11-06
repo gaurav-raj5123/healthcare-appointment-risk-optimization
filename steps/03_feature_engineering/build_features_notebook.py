@@ -9,14 +9,14 @@ def build_notebook():
     cells = []
 
     # Title & Framing
-    cells.append(nbf.v4.new_markdown_cell(r"""# ⚙️ Step 3: Feature Engineering & Temporal Train/Test Split
+    cells.append(nbf.v4.new_markdown_cell(r"""# ⚙️ Step 3: Feature Engineering & Chronological Train/Validation/Test Split
 
 ### **The Core Principle: Prediction-Time Availability**
 > *"Would the clinic staff know this information at the moment the patient schedules the appointment?"*
 
 At prediction time:
-* **Allowed:** Patient age, gender, historical chronic conditions, booking timestamp, appointment date, lead time, and all past appointment attendance records strictly prior to this visit.
-* **Strictly Prohibited:** Current visit outcome, future appointment dates/outcomes, or any information generated during or after the visit.
+* **Allowed:** Patient age, gender, historical chronic conditions, booking timestamp, appointment date, lead time, and all past appointment attendance records strictly completed and recorded prior to this scheduling date (`appointment_day < scheduled_date`).
+* **Strictly Prohibited:** Current visit outcome, future appointment dates/outcomes, same-day unverified visit outcomes, or any information generated after booking.
 
 ---
 
@@ -27,7 +27,7 @@ At prediction time:
 """))
 
     # Section 1: Load engineered datasets
-    cells.append(nbf.v4.new_markdown_cell("## 1. Load Engineered Train & Test Datasets\nGenerated via the prediction-time compliant pipeline script `engineer_features.py`."))
+    cells.append(nbf.v4.new_markdown_cell("## 1. Load Engineered Train, Validation & Test Datasets\nGenerated via the prediction-time compliant pipeline script `engineer_features.py`."))
     cells.append(nbf.v4.new_code_cell("""import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -39,39 +39,55 @@ sns.set_theme(style="whitegrid", palette="muted")
 plt.rcParams['figure.figsize'] = (10, 5)
 
 train_path = os.path.join('..', '..', 'data', 'processed', 'train_features.csv')
-test_path = os.path.join('..', '..', 'data', 'processed', 'test_features.csv')
-meta_path = os.path.join('..', '..', 'data', 'processed', 'feature_metadata.json')
+val_path   = os.path.join('..', '..', 'data', 'processed', 'val_features.csv')
+test_path  = os.path.join('..', '..', 'data', 'processed', 'test_features.csv')
+meta_path  = os.path.join('..', '..', 'data', 'processed', 'feature_metadata.json')
 
 df_train = pd.read_csv(train_path)
-df_test = pd.read_csv(test_path)
+df_val   = pd.read_csv(val_path)
+df_test  = pd.read_csv(test_path)
 
 with open(meta_path, 'r') as f:
     catalog = json.load(f)
 
 # Assert binary target validity
 assert set(df_train['no_show'].unique()) <= {0, 1}, "Target variable no_show must be binary 0 or 1!"
+assert set(df_val['no_show'].unique()) <= {0, 1}, "Target variable no_show must be binary 0 or 1!"
 assert set(df_test['no_show'].unique()) <= {0, 1}, "Target variable no_show must be binary 0 or 1!"
 
 print(f"Train set: {len(df_train):,} rows, {df_train.shape[1]} columns")
+print(f"Val set:   {len(df_val):,} rows, {df_val.shape[1]} columns")
 print(f"Test set:  {len(df_test):,} rows, {df_test.shape[1]} columns")
-print(f"Total features cataloged: {len(catalog['features']['core_static']) + len(catalog['features']['core_temporal']) + len(catalog['features']['core_patient_history'])}")
+print(f"Total features cataloged: {len(catalog['features']['explicit_list'])}")
 print(f"Excluded from predictors: {[item['name'] for item in catalog['features']['excluded_from_predictors']]}")
 """))
 
     # Section 2: Temporal Split Inspection
-    cells.append(nbf.v4.new_markdown_cell("## 2. Temporal Train / Test Split Verification\nStrict calendar partition ensuring the model trains exclusively on past appointments and evaluates on unseen future appointments."))
+    cells.append(nbf.v4.new_markdown_cell("## 2. Chronological Train / Validation / Test Split Verification\nStrict calendar partition ensuring the model trains exclusively on past appointments, validates on intermediate appointments, and reserves June as the untouched final evaluation set."))
     cells.append(nbf.v4.new_code_cell("""df_train['appointment_day'] = pd.to_datetime(df_train['appointment_day'])
-df_test['appointment_day'] = pd.to_datetime(df_test['appointment_day'])
+df_val['appointment_day']   = pd.to_datetime(df_val['appointment_day'])
+df_test['appointment_day']  = pd.to_datetime(df_test['appointment_day'])
 
 print(f"Training Date Range:   {df_train['appointment_day'].min().date()} to {df_train['appointment_day'].max().date()}")
+print(f"Validation Date Range: {df_val['appointment_day'].min().date()} to {df_val['appointment_day'].max().date()}")
 print(f"Testing Date Range:    {df_test['appointment_day'].min().date()} to {df_test['appointment_day'].max().date()}")
-print(f"Temporal Overlap Check: Max Train < Min Test? -> {df_train['appointment_day'].max() < df_test['appointment_day'].min()}")
+print(f"Temporal Boundaries Check: Train < Val < Test? -> {df_train['appointment_day'].max() < df_val['appointment_day'].min() < df_test['appointment_day'].min()}")
 
 split_summary = pd.DataFrame({
-    'Dataset': ['Train (April/May 2016)', 'Test (June 2016)'],
-    'Appointments': [len(df_train), len(df_test)],
-    'Share (%)': [len(df_train)/ (len(df_train) + len(df_test)) * 100, len(df_test) / (len(df_train) + len(df_test)) * 100],
-    'No-Show Rate (%)': [df_train['no_show'].mean() * 100, df_test['no_show'].mean() * 100]
+    'Partition': ['Train (Early Dev)', 'Validation (Late Dev)', 'Test (Final Unseen)'],
+    'Date Range': [
+        f"{df_train['appointment_day'].min().date()} to {df_train['appointment_day'].max().date()}",
+        f"{df_val['appointment_day'].min().date()} to {df_val['appointment_day'].max().date()}",
+        f"{df_test['appointment_day'].min().date()} to {df_test['appointment_day'].max().date()}"
+    ],
+    'Appointments': [len(df_train), len(df_val), len(df_test)],
+    'Share (%)': [
+        len(df_train) / (len(df_train) + len(df_val) + len(df_test)) * 100,
+        len(df_val) / (len(df_train) + len(df_val) + len(df_test)) * 100,
+        len(df_test) / (len(df_train) + len(df_val) + len(df_test)) * 100
+    ],
+    'No-Shows': [df_train['no_show'].sum(), df_val['no_show'].sum(), df_test['no_show'].sum()],
+    'No-Show Rate (%)': [df_train['no_show'].mean() * 100, df_val['no_show'].mean() * 100, df_test['no_show'].mean() * 100]
 })
 print("\\nSplit Summary Table:")
 print(split_summary.to_string(index=False))
@@ -80,15 +96,15 @@ print(split_summary.to_string(index=False))
     # Section 3: Point-in-Time History Demonstration
     cells.append(nbf.v4.new_markdown_cell("""## 3. Patient History Feature Demonstration (Zero-Leakage Audit)
 To verify that no future information leaks into the past, let's examine a repeat patient with multiple appointments.
-Notice how `prior_appointments`, `prior_noshows`, and `prior_noshow_rate` update strictly on past visits.
+Notice how `prior_appointments`, `prior_noshows`, and `prior_noshow_rate` update strictly on past visits whose appointment dates have already passed at scheduling time.
 """))
-    cells.append(nbf.v4.new_code_cell("""# Find a repeat patient with at least 3 visits
+    cells.append(nbf.v4.new_code_cell("""# Find a repeat patient with at least 2 completed prior visits
 repeat_pids = df_train[df_train['prior_appointments'] >= 2]['patient_id'].unique()
 example_pid = repeat_pids[0]
 
 example_history = df_train[df_train['patient_id'] == example_pid][
-    ['patient_id', 'appointment_day', 'no_show', 'prior_appointments', 'prior_noshows', 'prior_noshow_rate', 'days_since_last_appointment', 'is_first_appointment']
-].sort_values(by='appointment_day')
+    ['patient_id', 'scheduled_day', 'appointment_day', 'no_show', 'prior_appointments', 'prior_noshows', 'prior_noshow_rate', 'days_since_last_appointment', 'is_first_appointment']
+].sort_values(by=['appointment_day', 'scheduled_day'])
 
 print(f"Chronological point-in-time progression for Patient ID: {example_pid}")
 example_history
@@ -136,10 +152,9 @@ plt.show()
     cells.append(nbf.v4.new_markdown_cell("""## 5. Metric Feature Correlations with Target (`no_show`)
 
 > **Note on Categorical Features:**  
-> Nominal variables (`appointment_dow`, `scheduled_dow`, `appointment_month`) are intentionally **excluded** from this Pearson correlation chart because days of the week have no natural numerical hierarchy (Monday=0, Tuesday=1 does not mean Tuesday is twice Monday). Pearson correlation is only mathematically valid on metric continuous or binary indicator variables. In Step 4 (Modeling), nominal days of week will be one-hot encoded for linear models and appropriately handled by tree models.
+> Nominal variables (`appointment_dow`, `scheduled_dow`, `appointment_month`) are intentionally **excluded** from this Pearson correlation chart because days of the week have no natural numerical hierarchy. In Step 4 (Modeling), nominal days of week are one-hot encoded for linear models and handled appropriately by tree models.
 """))
-    cells.append(nbf.v4.new_code_cell("""# Evaluate metric continuous, count, and binary ordinal/indicator features
-metric_features = [
+    cells.append(nbf.v4.new_code_cell("""metric_features = [
     'lead_days', 'same_day_booking',
     'prior_appointments', 'prior_noshows', 'prior_noshow_rate', 'days_since_last_appointment', 'is_first_appointment',
     'age', 'gender', 'scholarship', 'hypertension', 'diabetes', 'alcoholism', 'has_handicap'
@@ -161,16 +176,16 @@ print(corrs.round(3))
 """))
 
     # Section 6: Summary & Handoff to Modeling
-    cells.append(nbf.v4.new_markdown_cell("""## 6. Milestone Summary & Step 4 Readiness
+    cells.append(nbf.v4.new_markdown_cell("""## 6. Milestone Summary & Step 4 Modeling Readiness
 
 | Feature Category | Features Included | Modeling Readiness |
 | :--- | :--- | :--- |
-| **Static Demographics & Clinical** | `age`, `gender`, `scholarship`, `hypertension`, `diabetes`, `alcoholism`, `has_handicap` | Clean binary & numeric scales ready for both linear & tree-based models. *(Note: `sms_received` is intentionally excluded from predictors to maintain Day 0 scheduling-time validity).* |
-| **Temporal & Operational** | `lead_days`, `same_day_booking`, `appointment_dow`, `scheduled_dow`, `appointment_month` | Captures booking horizons and day-of-week volume. `same_day_booking` is designated for candidate ablation vs `lead_days`. Day of week will be one-hot encoded for linear models. |
-| **Patient Behavioral History** | `prior_appointments`, `prior_noshows`, `prior_noshow_rate`, `days_since_last_appointment`, `is_first_appointment` | Strictly point-in-time (zero lookahead leakage); provides strongest predictive separation. |
+| **Static Demographics & Clinical** | `age`, `gender`, `scholarship`, `hypertension`, `diabetes`, `alcoholism`, `has_handicap` | Clean binary & numeric scales ready for both linear & tree-based models. `sms_received` is excluded from Day 0 predictors. |
+| **Temporal & Operational** | `lead_days`, `same_day_booking`, `appointment_dow`, `scheduled_dow`, `appointment_month` | Captures booking horizons and day-of-week volume. `same_day_booking` tested via ablation. Day of week one-hot encoded for linear models. |
+| **Patient Behavioral History** | `prior_appointments`, `prior_noshows`, `prior_noshow_rate`, `days_since_last_appointment`, `is_first_appointment` | Strictly point-in-time completed history (`appointment_date < scheduled_date`); zero future lookahead. |
 
 ### 🚀 Next Step:
-Proceed to **`steps/04_modeling/`** to benchmark baseline estimators, Logistic Regression (with One-Hot Encoding), Random Forest, and LightGBM/XGBoost on the temporal split!
+Proceed to **`steps/04_modeling/train_and_evaluate.py`** to benchmark baseline estimators, Logistic Regression, Random Forest, and XGBoost on the validation set!
 """))
 
     nb.cells = cells

@@ -1,0 +1,72 @@
+{
+  "total_records": 110521,
+  "unique_patients": 62298,
+  "multi_visit_patients": 24378,
+  "multi_visit_appointments": 72601,
+  "strictly_future_leaks": 13568,
+  "same_day_leaks": 17142,
+  "total_contaminated_records": 27525,
+  "contamination_rate_pct": 24.9,
+  "examples": [
+    {
+      "patient_id": 52168938,
+      "appointment_id": 5607220,
+      "booking_date": "2016-04-20",
+      "appointment_date": "2016-05-17",
+      "naive_prior_appointments": 1,
+      "naive_prior_noshows": 0,
+      "leak_safe_prior_appointments": 0,
+      "leak_safe_prior_noshows": 0,
+      "strictly_future_appointments_leaked": 1,
+      "same_day_appointments_leaked": 0
+    },
+    {
+      "patient_id": 64851211,
+      "appointment_id": 5697532,
+      "booking_date": "2016-05-13",
+      "appointment_date": "2016-05-17",
+      "naive_prior_appointments": 1,
+      "naive_prior_noshows": 1,
+      "leak_safe_prior_appointments": 0,
+      "leak_safe_prior_noshows": 0,
+      "strictly_future_appointments_leaked": 0,
+      "same_day_appointments_leaked": 1
+    },
+    {
+      "patient_id": 79228495,
+      "appointment_id": 5743266,
+      "booking_date": "2016-05-30",
+      "appointment_date": "2016-06-08",
+      "naive_prior_appointments": 1,
+      "naive_prior_noshows": 0,
+      "leak_safe_prior_appointments": 0,
+      "leak_safe_prior_noshows": 0,
+      "strictly_future_appointments_leaked": 0,
+      "same_day_appointments_leaked": 1
+    },
+    {
+      "patient_id": 122451254,
+      "appointment_id": 5576521,
+      "booking_date": "2016-04-13",
+      "appointment_date": "2016-05-09",
+      "naive_prior_appointments": 1,
+      "naive_prior_noshows": 1,
+      "leak_safe_prior_appointments": 0,
+      "leak_safe_prior_noshows": 0,
+      "strictly_future_appointments_leaked": 1,
+      "same_day_appointments_leaked": 0
+    },
+    {
+      "patient_id": 178168233,
+      "appointment_id": 5647593,
+      "booking_date": "2016-05-02",
+      "appointment_date": "2016-05-02",
+      "naive_prior_appointments": 1,
+      "naive_prior_noshows": 0,
+      "leak_safe_prior_appointments": 0,
+      "leak_safe_prior_noshows": 0,
+      "strictly_future_appointments_leaked": 0,
+      "same_day_appointments_leaked": 1
+    }
+  ]
+}

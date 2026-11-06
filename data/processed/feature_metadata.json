@@ -1,20 +1,80 @@
 {
-  "pipeline_version": "1.1",
-  "prediction_point": "At scheduling time (Day 0) - Zero future information",
-  "temporal_cutoff": "2016-06-01",
-  "train_rows": 84071,
-  "test_rows": 26450,
+  "pipeline_version": "1.2",
+  "prediction_point": "At scheduling time (Day 0) - strictly past-completed appointments only",
+  "split_architecture": {
+    "train": {
+      "date_range": [
+        "2016-04-29",
+        "2016-05-19"
+      ],
+      "rows": 63532,
+      "noshow_rate": 0.2095,
+      "positive_count": 13308,
+      "negative_count": 50224,
+      "purpose": "Model fitting during exploration and tuning"
+    },
+    "validation": {
+      "date_range": [
+        "2016-05-20",
+        "2016-05-31"
+      ],
+      "rows": 20539,
+      "noshow_rate": 0.2008,
+      "positive_count": 4124,
+      "negative_count": 16415,
+      "purpose": "Model comparison, hyperparameter selection, threshold optimization, probability calibration"
+    },
+    "full_dev": {
+      "date_range": [
+        "2016-04-29",
+        "2016-05-31"
+      ],
+      "rows": 84071,
+      "noshow_rate": 0.2073,
+      "positive_count": 17432,
+      "negative_count": 66639,
+      "purpose": "Full April-May development set to refit chosen model before final test evaluation"
+    },
+    "test": {
+      "date_range": [
+        "2016-06-01",
+        "2016-06-08"
+      ],
+      "rows": 26450,
+      "noshow_rate": 0.1846,
+      "positive_count": 4882,
+      "negative_count": 21568,
+      "purpose": "Final evaluation set (June 2016; treated as exploratory test set because initially used in early benchmarks)"
+    }
+  },
   "target": {
     "name": "no_show",
     "type": "binary",
     "values": {
       "0": "Show (Attended)",
       "1": "No-Show (Missed)"
-    },
-    "train_rate": 0.2073,
-    "test_rate": 0.1846
+    }
   },
   "features": {
+    "explicit_list": [
+      "age",
+      "gender",
+      "scholarship",
+      "hypertension",
+      "diabetes",
+      "alcoholism",
+      "has_handicap",
+      "lead_days",
+      "same_day_booking",
+      "appointment_dow",
+      "scheduled_dow",
+      "appointment_month",
+      "prior_appointments",
+      "prior_noshows",
+      "prior_noshow_rate",
+      "days_since_last_appointment",
+      "is_first_appointment"
+    ],
     "core_static": [
       {
         "name": "age",
@@ -49,7 +109,7 @@
       {
         "name": "has_handicap",
         "type": "binary",
-        "description": "Physical disability indicator"
+        "description": "Physical disability indicator (handicap > 0)"
       }
     ],
     "core_temporal": [
@@ -61,17 +121,17 @@
       {
         "name": "same_day_booking",
         "type": "candidate_binary",
-        "description": "Derived from lead_days == 0 (kept for ablation testing in Step 4)"
+        "description": "Derived from lead_days == 0 (tested via ablation)"
       },
       {
         "name": "appointment_dow",
         "type": "categorical_nominal",
-        "description": "Day of week of appointment (0=Monday..5=Saturday; requires one-hot encoding for linear models)"
+        "description": "Day of week of appointment (0=Mon..5=Sat)"
       },
       {
         "name": "scheduled_dow",
         "type": "categorical_nominal",
-        "description": "Day of week when booking was scheduled (0=Monday..5=Saturday; requires one-hot encoding for linear models)"
+        "description": "Day of week booking was scheduled (0=Mon..5=Sat)"
       },
       {
         "name": "appointment_month",
@@ -83,12 +143,12 @@
       {
         "name": "prior_appointments",
         "type": "discrete_count",
-        "description": "Number of previous appointments for this patient"
+        "description": "Number of strictly prior completed appointments (appointment_date < scheduled_date)"
       },
       {
         "name": "prior_noshows",
         "type": "discrete_count",
-        "description": "Number of previous missed appointments for this patient"
+        "description": "Number of strictly prior completed missed visits"
       },
       {
         "name": "prior_noshow_rate",
@@ -98,22 +158,22 @@
       {
         "name": "days_since_last_appointment",
         "type": "discrete_count",
-        "description": "Days since patient's previous visit (-1 for first-time visits)"
+        "description": "Days since previous completed visit (-1 for first-time visitors)"
       },
       {
         "name": "is_first_appointment",
         "type": "binary",
-        "description": "1 if patient has no prior recorded visits, 0 if returning"
+        "description": "1 if no prior completed visits, 0 if returning"
       }
     ],
     "excluded_from_predictors": [
       {
         "name": "sms_received",
-        "reason": "Future information at Day 0 booking time; preserved in metadata for intervention analysis only."
+        "reason": "Future operational info at Day 0 booking; preserved in metadata for intervention analysis only."
       },
       {
         "name": "patient_id",
-        "reason": "Identifier only; used for groupby aggregations."
+        "reason": "Identifier only."
       },
       {
         "name": "appointment_id",
