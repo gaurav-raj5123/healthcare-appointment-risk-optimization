@@ -1,0 +1,7 @@
+appointment_id,patient_id,scheduled_day,appointment_day,age,gender,scholarship,hypertension,diabetes,alcoholism,handicap,prior_appointments,prior_noshows,days_since_last_appointment
+1001,5001,2026-11-01,2026-11-15,34,F,0,0,0,0,0,2,0,45
+1002,5002,2026-11-10,2026-11-10,68,M,0,1,1,0,1,8,1,21
+1003,5003,2026-10-15,2026-11-12,19,M,1,0,0,0,0,0,0,-1
+1004,5004,2026-11-02,2026-11-20,45,F,0,1,0,0,0,5,2,14
+1005,5005,2026-11-05,2026-11-06,28,F,0,0,0,0,0,1,0,90
+

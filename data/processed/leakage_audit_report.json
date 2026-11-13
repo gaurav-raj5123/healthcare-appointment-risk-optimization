@@ -1,13 +1,27 @@
 {
-  "total_records": 110521,
+  "counting_units": {
+    "appointments": "Distinct appointment rows evaluated in the dataset (N=110,521)",
+    "events": "Total individual historical visit outcomes incorrectly aggregated into prior history"
+  },
+  "total_appointments": 110521,
   "unique_patients": 62298,
   "multi_visit_patients": 24378,
   "multi_visit_appointments": 72601,
-  "strictly_future_leaks": 13568,
-  "same_day_leaks": 17142,
-  "total_contaminated_records": 27525,
-  "contamination_rate_pct": 24.9,
-  "examples": [
+  "reconciled_appointment_counts": {
+    "future_only_leaked_appointments": 10383,
+    "same_day_only_leaked_appointments": 13957,
+    "both_future_and_sameday_leaked_appointments": 3185,
+    "total_unique_contaminated_appointments": 27525,
+    "total_unique_contaminated_pct": 24.9,
+    "any_future_leaked_appointments": 13568,
+    "any_same_day_leaked_appointments": 17142
+  },
+  "event_level_counts": {
+    "future_events_leaked": 21256,
+    "same_day_events_leaked": 20435,
+    "total_historical_events_improperly_included": 41691
+  },
+  "sample_leaked_records": [
     {
       "patient_id": 52168938,
       "appointment_id": 5607220,

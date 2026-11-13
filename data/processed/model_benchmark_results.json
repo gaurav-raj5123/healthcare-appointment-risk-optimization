@@ -137,23 +137,23 @@
       ]
     },
     {
-      "model": "XGBoost (Sigmoid Calibrated)",
-      "pr_auc": 0.3584,
-      "roc_auc": 0.7382,
-      "f1_score": 0.0932,
-      "recall": 0.0524,
-      "precision": 0.4244,
-      "accuracy": 0.7955,
-      "brier_score": 0.1439,
+      "model": "XGBoost (Sigmoid Calibrated, 5-Fold CV)",
+      "pr_auc": 0.3588,
+      "roc_auc": 0.7383,
+      "f1_score": 0.1498,
+      "recall": 0.0909,
+      "precision": 0.4252,
+      "accuracy": 0.7928,
+      "brier_score": 0.1445,
       "ece": 0.0359,
       "confusion_matrix": [
         [
-          16122,
-          293
+          15908,
+          507
         ],
         [
-          3908,
-          216
+          3749,
+          375
         ]
       ]
     }
